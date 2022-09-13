@@ -1,27 +1,31 @@
 package com.example.latihanlks1.data.network
 
-import android.util.Log
 import org.json.JSONObject
-import java.io.*
-import java.lang.Exception
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
+import java.io.InputStreamReader
+import java.io.OutputStream
+import java.io.OutputStreamWriter
+import java.io.PrintWriter
 import java.net.HttpURLConnection
-import java.net.URLConnection
 import java.net.URL
-import kotlin.jvm.Throws
+import java.net.URLConnection
 
 class NetworkApi(
     requestURL: String?,
     private val charset: String = "UTF-8",
     private val method: String = "GET",
     private val contentType: String? = null,
-    private val headers: Array<Pair<String, String>> = emptyArray()
+    private val headers: Array<Pair<String, String>> = emptyArray(),
 ) {
-    private val boundary : String = "===" + System.currentTimeMillis() + "==="
+    private val boundary: String = "===" + System.currentTimeMillis() + "==="
     private val httpConn: HttpURLConnection
     private var outputStream: OutputStream? = null
     private var writer: PrintWriter? = null
 
-    companion object{
+    companion object {
         private val LINE_FEED = "\r\n"
         val CONTENT_JSON = "application/json"
     }
@@ -32,13 +36,14 @@ class NetworkApi(
         httpConn.useCaches = false
         httpConn.requestMethod = method
 
-        if (method != "GET"){
+        if (method != "GET") {
             httpConn.doOutput = method == "POST"
             httpConn.doInput = method == "POST"
-            if (contentType == CONTENT_JSON){
+            if (contentType == CONTENT_JSON) {
                 httpConn.setRequestProperty("Content-Type", contentType)
-            }else{
-                httpConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            } else {
+                httpConn.setRequestProperty("Content-Type",
+                    "multipart/form-data; boundary=$boundary")
             }
             headers.forEach {
                 httpConn.setRequestProperty(it.first, it.second)
@@ -48,25 +53,26 @@ class NetworkApi(
         }
     }
 
-    fun addJsonBody(body: JSONObject) : NetworkApi{
+    fun addJsonBody(body: JSONObject): NetworkApi {
         outputStream?.write(body.toString().toByteArray())
         outputStream?.flush()
         return this
     }
 
-    fun addFormField(name : String, value : String?) : NetworkApi{
+    fun addFormField(name: String, value: String?): NetworkApi {
         writer?.append("--$boundary")?.append(LINE_FEED)
         writer?.append("Content-Disposition: form-data; name=\"$name\"")
             ?.append(LINE_FEED)
         writer?.append("Content-Type: Text/plain; charset=$charset")?.append(LINE_FEED)
         writer?.append(LINE_FEED)
-        writer?.append(value)?.append(LINE_FEED)
+        writer?.append(value)
         writer?.flush()
+        writer?.append(LINE_FEED)?.flush()
         return this
     }
 
     @Throws(IOException::class)
-    fun addFilePart(fieldName: String, UploadFile : File): NetworkApi{
+    fun addFilePart(fieldName: String, UploadFile: File): NetworkApi {
         val fileName: String = UploadFile.name
         writer?.append("--$boundary")?.append(LINE_FEED)
         writer?.append(
@@ -102,30 +108,31 @@ class NetworkApi(
     fun execute(): String {
         try {
             val response = StringBuffer()
-            writer?.append(LINE_FEED)?.flush()
-            writer?.append("--$boundary--")?.append(LINE_FEED)
-            writer?.close()
+            if (contentType != CONTENT_JSON) {
+                writer?.append("--$boundary--")?.append(LINE_FEED)
+                writer?.close()
+            }
 
-            val status : Int = httpConn.responseCode
+            val status: Int = httpConn.responseCode
 
-            if (status in 200 until 300){
+            if (status in 200 until 300) {
                 val reader = BufferedReader(InputStreamReader(httpConn.inputStream))
                 var line: String?
-                while ((reader.readLine().also { line = it }) != null){
+                while ((reader.readLine().also { line = it }) != null) {
                     response.append(line)
                 }
                 reader.close()
-            }else{
+            } else {
                 val reader = BufferedReader(InputStreamReader(httpConn.errorStream))
                 var line: String?
-                while ((reader.readLine().also { line = it }) != null){
+                while ((reader.readLine().also { line = it }) != null) {
                     response.append(line)
                 }
                 reader.close()
                 throw IOException(response.toString())
             }
             return response.toString()
-        }catch (e : Exception){
+        } catch (e: Exception) {
             throw e
         } finally {
             httpConn.disconnect()
