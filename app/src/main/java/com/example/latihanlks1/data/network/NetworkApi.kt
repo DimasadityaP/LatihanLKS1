@@ -1,4 +1,4 @@
-package com.example.latihanlks1.Data.Network
+package com.example.latihanlks1.data.network
 
 import org.json.JSONObject
 import java.io.*
@@ -49,7 +49,7 @@ class NetworkApi(
         return this
     }
 
-    fun addFormFile(name : String, value : String?) : NetworkApi{
+    fun addFormField(name : String, value : String?) : NetworkApi{
         writer?.append("--$boundary")?.append(LINE_FEED)
         writer?.append("Content-Disposition: form-data; name=\"$name\"")
             ?.append(LINE_FEED)
