@@ -37,40 +37,7 @@ class GalleryActivity : AppCompatActivity() {
         setUp()
     }
 
-    private val galleryLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (it.resultCode == RESULT_OK) {
-                Log.d("ActivityResultGallery", it.data?.data.toString())
-                it.data?.data?.let { uri ->
-                    getRealPathFromURI(uri)?.let { realPath ->
-                        Log.d("getRealPathFromURI", realPath)
-                        val file = File(realPath)
-                        CoroutineScope(Dispatchers.Main).launch {
-                            postImage(file)?.let {
-                                Log.d("postImage", realPath)
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
-    private val storagePermission =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            when {
-                permissions[Manifest.permission.READ_EXTERNAL_STORAGE] == true -> {
-                    val intent =
-                        Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-                    intent.putExtra(
-                        Intent.EXTRA_MIME_TYPES,
-                        arrayOf("image/jpg", "image/jpeg", "image/png")
-                    )
-                    galleryLauncher.launch(
-                        intent
-                    )
-                }
-            }
-        }
 
     private fun setUp() {
         galleryadapter = GalleryAdapter { photo ->
@@ -93,7 +60,8 @@ class GalleryActivity : AppCompatActivity() {
         connectionCatApi()
 
         binding.btnAdd.setOnClickListener {
-            storagePermission.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
+            val intentupload = Intent(this, UploadGalleryActivity::class.java)
+            startActivity(intentupload)
         }
     }
 
@@ -106,25 +74,6 @@ class GalleryActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun postImage(file: File): JSONObject? {
-        return try {
-            withContext(Dispatchers.IO) {
-                NetworkApi(
-                    "https://api.thecatapi.com/v1/images/upload",
-                    method = "POST",
-                    headers = arrayOf(
-                        Pair("x-api-key", "live_F9QVdZ5GmaliK9O0lugJmvTckMYhL74IrOll5JGyPA2UchBKC5CvPCD7s0lUBb7d"),
-                    ),
-                ).addFilePart("file", file)
-                    .execute()?.let {
-                        JSONObject(it)
-                    }
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this@GalleryActivity, e.localizedMessage, Toast.LENGTH_SHORT).show()
-            null
-        }
-    }
 
     private suspend fun getDetailCats(id: String?): JSONObject? {
         return withContext(Dispatchers.IO) {

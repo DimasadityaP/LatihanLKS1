@@ -18,7 +18,7 @@ class NetworkApi(
     private val charset: String = "UTF-8",
     private val method: String = "GET",
     private val contentType: String? = null,
-    private val headers: Array<Pair<String, String>> = emptyArray(),
+//    private val headers: Array<Pair<String, String>> = emptyArray(),
 ) {
     private val boundary: String = "===" + System.currentTimeMillis() + "==="
     private val httpConn: HttpURLConnection
@@ -45,9 +45,9 @@ class NetworkApi(
                 httpConn.setRequestProperty("Content-Type",
                     "multipart/form-data; boundary=$boundary")
             }
-            headers.forEach {
-                httpConn.setRequestProperty(it.first, it.second)
-            }
+//            headers.forEach {
+//                httpConn.setRequestProperty(it.first, it.second)
+//            }
             outputStream = httpConn.outputStream
             writer = PrintWriter(OutputStreamWriter(outputStream, charset), true)
         }
