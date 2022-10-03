@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.latihanlks1.R
 import com.example.latihanlks1.data.model.Album
+import com.example.latihanlks1.data.network.FormRequest
 import com.example.latihanlks1.data.network.NetworkApi
 import com.example.latihanlks1.databinding.ActivityUploadGalleryBinding
 import com.example.latihanlks1.util.getRealPathFromURI
@@ -22,7 +23,6 @@ import java.io.File
 
 class UploadGalleryActivity : AppCompatActivity() {
     lateinit var binding : ActivityUploadGalleryBinding
-    lateinit var file: File
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityUploadGalleryBinding.inflate(LayoutInflater.from(this))
@@ -59,12 +59,35 @@ class UploadGalleryActivity : AppCompatActivity() {
                 it.data?.data?.let { uri ->
                     getRealPathFromURI(uri)?.let { realPath ->
                         Log.d("getRealPathFromURI", realPath)
-                        file = File(realPath)
+                        val file = File(realPath)
                         CoroutineScope(Dispatchers.Main).launch {
-                            postImage(file)?.let {
-                                val imgurl = it.getString("thumb")
-                                bind(imgurl)
-                                Log.d("postImage", realPath)
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    val requestForm = FormRequest()
+                                        .addFormFile("media", file)
+                                        .addFormField("key", "00001f67db9714503fe34ba6bc05dea8")
+
+                                    val postImage = NetworkApi()
+                                        .setMethod("POST")
+                                        .setRequestURL("https://thumbsnap.com/api/upload")
+                                        .addHeader("Content-Type", requestForm.contentType)
+                                        .withBody(requestForm)
+                                        .execute()
+                                        .asJSON(JSONObject::class.java)
+
+                                    if (postImage.httpStatusCode !in 200 until 300) {
+                                        Toast.makeText(this@UploadGalleryActivity, "Error: ${postImage.rawResponseData}", Toast.LENGTH_LONG).show()
+                                        return@withContext
+                                    }
+
+                                    Log.d("response", postImage.rawResponseData)
+                                    bind(postImage.responseData.getJSONObject("data").getString("thumb"))
+                                    Log.d("postImage", realPath)
+                                }
+
+                            } catch (e: Exception) {
+                                Toast.makeText(this@UploadGalleryActivity, e.localizedMessage, Toast.LENGTH_SHORT).show()
+                                return@launch
                             }
                         }
                     }
@@ -87,26 +110,4 @@ class UploadGalleryActivity : AppCompatActivity() {
             }
         }
 
-    private suspend fun postImage(file: File): JSONObject? {
-        return try {
-            withContext(Dispatchers.IO) {
-                NetworkApi(
-                    "https://thumbsnap.com/api/upload",
-                    method = "POST",
-//                    headers = arrayOf(
-//                        Pair("x-api-key", "live_F9QVdZ5GmaliK9O0lugJmvTckMYhL74IrOll5JGyPA2UchBKC5CvPCD7s0lUBb7d"),
-//                    ),
-                ).addFormField("key", "00001f67db9714503fe34ba6bc05dea8")
-                    .addFilePart("media", file)
-                    .execute()?.let {
-                        JSONObject(it)
-                            .getJSONObject("data")
-                    }
-            }
-
-        } catch (e: Exception) {
-            Toast.makeText(this@UploadGalleryActivity, e.localizedMessage, Toast.LENGTH_SHORT).show()
-            null
-        }
-    }
 }

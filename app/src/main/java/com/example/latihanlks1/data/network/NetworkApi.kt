@@ -1,5 +1,7 @@
 package com.example.latihanlks1.data.network
 
+import com.example.latihanlks1.data.model.HttpResponse
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -13,131 +15,157 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLConnection
 
-class NetworkApi(
-    requestURL: String?,
-    private val charset: String = "UTF-8",
-    private val method: String = "GET",
-    private val contentType: String? = null,
-//    private val headers: Array<Pair<String, String>> = emptyArray(),
-) {
-    private val boundary: String = "===" + System.currentTimeMillis() + "==="
-    private val httpConn: HttpURLConnection
-    private var outputStream: OutputStream? = null
-    private var writer: PrintWriter? = null
+interface BodyRequest {
+    fun encode(os: OutputStream)
+}
 
-    companion object {
-        private val LINE_FEED = "\r\n"
-        val CONTENT_JSON = "application/json"
+class NetworkApi() {
+    private val headers = mutableMapOf<String, String>()
+    private var method: String = "GET"
+    private var requestURL: String = ""
+    private var bodyRequest: BodyRequest? = null
+    private lateinit var httpConn: HttpURLConnection
+    private val stringBuff: StringBuffer = StringBuffer()
+
+    fun setMethod(method: String): NetworkApi {
+        this.method = method
+        return this
     }
 
-    init {
+    fun setRequestURL(url: String): NetworkApi {
+        this.requestURL = url
+        return this
+    }
+
+    fun addHeader(key: String, value: String): NetworkApi {
+        this.headers[key] = value
+        return this
+    }
+
+    fun withBody(bodyRequest: BodyRequest): NetworkApi {
+        this.bodyRequest = bodyRequest
+        return this
+    }
+
+    private fun setRequestProperty() {
+        this.httpConn.requestMethod = this.method
+        this.headers.forEach{ header ->
+            this.httpConn.setRequestProperty(header.key, header.value)
+        }
+    }
+
+    @Throws(IOException::class)
+    fun execute(): NetworkApi {
         val url = URL(requestURL)
-        httpConn = url.openConnection() as HttpURLConnection
-        httpConn.useCaches = false
-        httpConn.requestMethod = method
+        this.httpConn = url.openConnection() as HttpURLConnection
+        this.httpConn.useCaches = false
 
-        if (method != "GET") {
-            httpConn.doOutput = method == "POST"
-            httpConn.doInput = method == "POST"
-            if (contentType == CONTENT_JSON) {
-                httpConn.setRequestProperty("Content-Type", contentType)
-            } else {
-                httpConn.setRequestProperty("Content-Type",
-                    "multipart/form-data; boundary=$boundary")
-            }
-//            headers.forEach {
-//                httpConn.setRequestProperty(it.first, it.second)
-//            }
-            outputStream = httpConn.outputStream
-            writer = PrintWriter(OutputStreamWriter(outputStream, charset), true)
-        }
-    }
-
-    fun addJsonBody(body: JSONObject): NetworkApi {
-        outputStream?.write(body.toString().toByteArray())
-        outputStream?.flush()
-        return this
-    }
-
-    fun addFormField(name: String, value: String?): NetworkApi {
-        writer?.append("--$boundary")?.append(LINE_FEED)
-        writer?.append("Content-Disposition: form-data; name=\"$name\"")
-            ?.append(LINE_FEED)
-        writer?.append("Content-Type: Text/plain; charset=$charset")?.append(LINE_FEED)
-        writer?.append(LINE_FEED)
-        writer?.append(value)
-        writer?.flush()
-        writer?.append(LINE_FEED)?.flush()
-        return this
-    }
-
-    @Throws(IOException::class)
-    fun addFilePart(fieldName: String, UploadFile: File): NetworkApi {
-        val fileName: String = UploadFile.name
-        writer?.append("--$boundary")?.append(LINE_FEED)
-        writer?.append(
-            "Content-Disposition: form-data; name=\"" + fieldName
-                    + "\"; filename=\"" + fileName + "\"")
-            ?.append(LINE_FEED)
-        writer?.append((
-                "Content-Type: "
-                        + URLConnection.guessContentTypeFromName(fileName)))
-            ?.append(LINE_FEED)
-        writer?.append("Content-Transfer-Encoding: binary")?.append(LINE_FEED)
-        writer?.append(LINE_FEED)
-        writer?.flush()
-        val inputStream = FileInputStream(UploadFile)
-        val buffer = ByteArray(4096)
-        var bytesRead = -1
-        while ((inputStream.read(buffer).also { bytesRead = it }) != -1) {
-            outputStream?.write(buffer, 0, bytesRead)
-        }
-        outputStream?.flush()
-        inputStream.close()
-        writer?.append(LINE_FEED)
-        writer?.flush()
-        return this
-    }
-//    fun addHeaderField(name: String, value: String): NetworkApi{
-//        writer?.append("$name: $value")?.append(LINE_FEED)
-//        writer?.flush()
-//        return this
-//    }
-
-    @Throws(IOException::class)
-    fun execute(): String {
         try {
-            val response = StringBuffer()
-            if (contentType != CONTENT_JSON) {
-                writer?.append("--$boundary--")?.append(LINE_FEED)
-                writer?.close()
+            this.setRequestProperty()
+            bodyRequest?.let{
+                this.httpConn.doOutput = true
+                it.encode(this.httpConn.outputStream)
             }
+            this.httpConn.connect()
 
-            val status: Int = httpConn.responseCode
-
-            if (status in 200 until 300) {
-                val reader = BufferedReader(InputStreamReader(httpConn.inputStream))
-                var line: String?
-                while ((reader.readLine().also { line = it }) != null) {
-                    response.append(line)
-                }
-                reader.close()
-            } else {
-                val reader = BufferedReader(InputStreamReader(httpConn.errorStream))
-                var line: String?
-                while ((reader.readLine().also { line = it }) != null) {
-                    response.append(line)
-                }
-                reader.close()
-                throw IOException(response.toString())
+            val reader = BufferedReader(InputStreamReader(httpConn.inputStream))
+            var line: String?
+            while ((reader.readLine().also { line = it }) != null) {
+                this.stringBuff.append(line)
             }
-            return response.toString()
+            reader.close()
         } catch (e: Exception) {
             throw e
         } finally {
-            httpConn.disconnect()
+            this.httpConn.disconnect()
+        }
+        return this
+    }
+
+    @Throws(Exception::class)
+    fun <T> asJSON(cls: Class<T>): HttpResponse<T> {
+        val instance: T = cls.getConstructor(String::class.java).newInstance(this.stringBuff.toString())
+        return HttpResponse(this.httpConn.responseCode, instance, this.stringBuff.toString())
+    }
+}
+
+class JsonRequest<T>(private val body: T): BodyRequest {
+    companion object {
+        const val contentType = "application/json"
+    }
+
+    override fun encode(os: OutputStream) {
+        when (body) {
+            is JSONObject, is JSONArray -> {
+                os.write(body.toString().toByteArray())
+                os.flush()
+                os.close()
+            }
+            else -> throw Exception("Wrong type class")
         }
     }
 
+}
 
+class FormRequest(): BodyRequest {
+    private val bodyForm = mutableMapOf<String, String>()
+    private val bodyFile = mutableMapOf<String, File>()
+    private val boundary: String = "-------------------${System.currentTimeMillis()}"
+    val contentType: String
+        get() {
+            return "multipart/form-data; boundary=${this.boundary}"
+        }
+    override fun encode(os: OutputStream) {
+        this.bodyForm.forEach { body ->
+            os.write(generateFormField(body.key, body.value))
+            os.flush()
+        }
+
+        this.bodyFile.forEach{body ->
+            os.write(generateFormFile(body.key, body.value))
+            os.flush()
+        }
+
+        val boundaryEnd = "--$boundary--"
+        os.write(boundaryEnd.toByteArray())
+        os.write(System.lineSeparator().toByteArray())
+        os.flush()
+        os.close()
+    }
+
+    private fun generateFormField(key: String, value: String): ByteArray {
+        System.lineSeparator()
+        val formField = """
+            --$boundary
+            Content-Disposition: form-data; name="$key"
+            
+            $value
+            
+        """.trimIndent().replace("\n", "\r\n")
+        return formField.toByteArray()
+    }
+
+    private fun generateFormFile(key: String, value: File): ByteArray {
+        val fileName: String = value.name
+
+        val formatFormFile = """
+--$boundary
+Content-Disposition: form-data; name="$key"; filename="$fileName"
+Content-Type: ${URLConnection.guessContentTypeFromName(fileName)}
+
+${value.readText()}
+
+""".trimIndent().replace("\n", "\r\n")
+        return formatFormFile.toByteArray()
+    }
+
+    fun addFormField(key: String, value: String): FormRequest {
+        this.bodyForm[key] = value
+        return this
+    }
+
+    fun addFormFile(key: String, value: File): FormRequest {
+        this.bodyFile[key] = value
+        return this
+    }
 }

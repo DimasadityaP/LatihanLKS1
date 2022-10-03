@@ -43,11 +43,23 @@ class GalleryActivity : AppCompatActivity() {
         galleryadapter = GalleryAdapter { photo ->
             val intent = Intent(this, DetailActivity::class.java)
             CoroutineScope(Dispatchers.Main).launch {
-                val detailObject = getDetailCats(photo.id)
-                detailObject?.let {
-                    val idCat = it.getString("id")
-                    val nameCat = it.getString("name")
-                    val desc = it.getString("description")
+                val detailObject = withContext(Dispatchers.IO) {
+                    NetworkApi()
+                        .setMethod("GET")
+                        .setRequestURL("https://api.thecatapi.com/v1/breeds/${photo.id}")
+                        .execute()
+                        .asJSON(JSONObject::class.java)
+                }
+
+                if (detailObject.httpStatusCode !in 200 until 300) {
+                    Toast.makeText(this@GalleryActivity, "Error: ${detailObject.rawResponseData}", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                detailObject.let {
+                    val idCat = it.responseData.getString("id")
+                    val nameCat = it.responseData.getString("name")
+                    val desc = it.responseData.getString("description")
                     val imgurl = photo.image.toString()
                     val album =
                         Album(id = idCat, name = nameCat, descrption = desc, imageUrl = imgurl)
@@ -65,46 +77,35 @@ class GalleryActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun getCats(): JSONArray? {
-        return withContext(Dispatchers.IO) {
-            NetworkApi("https://api.thecatapi.com/v1/breeds?limit=20&page=0")
-                .execute()?.let {
-                    JSONArray(it)
-                }
-        }
-    }
-
-
-    private suspend fun getDetailCats(id: String?): JSONObject? {
-        return withContext(Dispatchers.IO) {
-            NetworkApi("https://api.thecatapi.com/v1/breeds/$id")
-                .execute()?.let {
-                    JSONObject(it)
-                }
-        }
-    }
-
     private fun connectionCatApi() {
         CoroutineScope(Dispatchers.Main).launch {
-            val jsonArray = getCats()
-            jsonArray?.let {
-                val templist = mutableListOf<Photo>()
-
-                for (i in 0 until it.length()) {
-                    val item = it.getJSONObject(i)
-                    val image = item.getJSONObject("image")
-                    templist.add(
-                        Photo(
-                            name = item.getString("name"),
-                            id = item.getString("id"),
-                            image = image.getString("url")
-                        )
-                    )
-                }
-                list = templist
-                searchlist = list
-                galleryadapter.addImages(searchlist)
+            val responseAPI = withContext(Dispatchers.IO) {
+                NetworkApi()
+                    .setRequestURL("https://api.thecatapi.com/v1/breeds?limit=20&page=0")
+                    .execute()
+                    .asJSON(JSONArray::class.java)
             }
+
+            if (responseAPI.httpStatusCode !in 200 until 300) {
+                Toast.makeText(this@GalleryActivity, "Error: ${responseAPI.rawResponseData}", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            val templist = mutableListOf<Photo>()
+            for (i in 0 until responseAPI.responseData.length()) {
+                val item = responseAPI.responseData.getJSONObject(i)
+                val image = item.getJSONObject("image")
+                templist.add(
+                    Photo(
+                        name = item.getString("name"),
+                        id = item.getString("id"),
+                        image = image.getString("url")
+                    )
+                )
+            }
+            list = templist
+            searchlist = list
+            galleryadapter.addImages(searchlist)
         }
     }
 }
