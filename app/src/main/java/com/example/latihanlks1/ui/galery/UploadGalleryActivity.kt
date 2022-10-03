@@ -82,9 +82,7 @@ class UploadGalleryActivity : AppCompatActivity() {
                         Intent.EXTRA_MIME_TYPES,
                         arrayOf("image/jpg", "image/jpeg", "image/png")
                     )
-                    galleryLauncher.launch(
-                        intent
-                    )
+                    galleryLauncher.launch(intent)
                 }
             }
         }
