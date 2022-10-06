@@ -1,5 +1,6 @@
 package com.example.latihanlks1.data.network
 
+import android.util.Log
 import com.example.latihanlks1.data.model.HttpResponse
 import org.json.JSONArray
 import org.json.JSONObject
@@ -68,12 +69,7 @@ class NetworkApi() {
             }
             this.httpConn.connect()
 
-            val reader = BufferedReader(InputStreamReader(httpConn.inputStream))
-            var line: String?
-            while ((reader.readLine().also { line = it }) != null) {
-                this.stringBuff.append(line)
-            }
-            reader.close()
+            this.stringBuff.append(httpConn.inputStream.reader().readText())
         } catch (e: Exception) {
             throw e
         } finally {
@@ -110,11 +106,12 @@ class JsonRequest<T>(private val body: T): BodyRequest {
 class FormRequest(): BodyRequest {
     private val bodyForm = mutableMapOf<String, String>()
     private val bodyFile = mutableMapOf<String, File>()
-    private val boundary: String = "-------------------${System.currentTimeMillis()}"
+    private val boundary: String = "${System.currentTimeMillis()}"
     val contentType: String
         get() {
             return "multipart/form-data; boundary=${this.boundary}"
         }
+
     override fun encode(os: OutputStream) {
         this.bodyForm.forEach { body ->
             os.write(generateFormField(body.key, body.value))
@@ -122,41 +119,31 @@ class FormRequest(): BodyRequest {
         }
 
         this.bodyFile.forEach{body ->
+            val b = String(generateFormFile(body.key, body.value))
+            Log.d("FormField", b)
             os.write(generateFormFile(body.key, body.value))
             os.flush()
         }
 
-        val boundaryEnd = "--$boundary--"
-        os.write(boundaryEnd.toByteArray())
-        os.write(System.lineSeparator().toByteArray())
+        os.write("--$boundary--$LINE_FEED".toByteArray())
         os.flush()
         os.close()
     }
 
     private fun generateFormField(key: String, value: String): ByteArray {
-        System.lineSeparator()
-        val formField = """
-            --$boundary
-            Content-Disposition: form-data; name="$key"
-            
-            $value
-            
-        """.trimIndent().replace("\n", "\r\n")
+        val formField = "--$boundary$LINE_FEED" +
+                "Content-Disposition: form-data; name=\"$key\"$LINE_FEED$LINE_FEED" +
+                "$value$LINE_FEED"
         return formField.toByteArray()
     }
 
     private fun generateFormFile(key: String, value: File): ByteArray {
         val fileName: String = value.name
-
-        val formatFormFile = """
---$boundary
-Content-Disposition: form-data; name="$key"; filename="$fileName"
-Content-Type: ${URLConnection.guessContentTypeFromName(fileName)}
-
-${value.readText()}
-
-""".trimIndent().replace("\n", "\r\n")
-        return formatFormFile.toByteArray()
+        val formFile = "--$boundary$LINE_FEED" +
+                "Content-Disposition: form-data; name=\"$key\"; filename=\"$fileName\"$LINE_FEED" +
+                "Content-Type: ${URLConnection.guessContentTypeFromName(fileName)}$LINE_FEED$LINE_FEED" +
+                "${value.readText()}$LINE_FEED"
+        return formFile.toByteArray()
     }
 
     fun addFormField(key: String, value: String): FormRequest {
@@ -167,5 +154,9 @@ ${value.readText()}
     fun addFormFile(key: String, value: File): FormRequest {
         this.bodyFile[key] = value
         return this
+    }
+
+    companion object {
+        private const val LINE_FEED = "\r\n"
     }
 }
