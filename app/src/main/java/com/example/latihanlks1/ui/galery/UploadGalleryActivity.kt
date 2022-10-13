@@ -58,10 +58,10 @@ class UploadGalleryActivity : AppCompatActivity() {
                 Log.d("ActivityResultGallery", it.data?.data.toString())
                 it.data?.data?.let { uri ->
                     getRealPathFromURI(uri)?.let { realPath ->
-                        Log.d("getRealPathFromURI", realPath)
-                        val file = File(realPath)
                         CoroutineScope(Dispatchers.Main).launch {
                             try {
+                                Log.d("getRealPathFromURI", realPath)
+                                val file = File(realPath)
                                 withContext(Dispatchers.IO) {
                                     val requestForm = FormRequest()
                                         .addFormFile("media", file)

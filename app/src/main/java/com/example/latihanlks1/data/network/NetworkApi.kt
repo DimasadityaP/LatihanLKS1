@@ -1,17 +1,9 @@
 package com.example.latihanlks1.data.network
 
-import android.util.Log
 import com.example.latihanlks1.data.model.HttpResponse
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileInputStream
-import java.io.IOException
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.io.OutputStreamWriter
-import java.io.PrintWriter
+import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLConnection
@@ -60,10 +52,11 @@ class NetworkApi() {
         val url = URL(requestURL)
         this.httpConn = url.openConnection() as HttpURLConnection
         this.httpConn.useCaches = false
+        this.httpConn.doInput = true
 
         try {
             this.setRequestProperty()
-            bodyRequest?.let{
+            this.bodyRequest?.let{
                 this.httpConn.doOutput = true
                 it.encode(this.httpConn.outputStream)
             }
@@ -75,6 +68,7 @@ class NetworkApi() {
         } finally {
             this.httpConn.disconnect()
         }
+
         return this
     }
 
@@ -115,14 +109,10 @@ class FormRequest(): BodyRequest {
     override fun encode(os: OutputStream) {
         this.bodyForm.forEach { body ->
             os.write(generateFormField(body.key, body.value))
-            os.flush()
         }
 
         this.bodyFile.forEach{body ->
-            val b = String(generateFormFile(body.key, body.value))
-            Log.d("FormField", b)
             os.write(generateFormFile(body.key, body.value))
-            os.flush()
         }
 
         os.write("--$boundary--$LINE_FEED".toByteArray())
@@ -141,9 +131,10 @@ class FormRequest(): BodyRequest {
         val fileName: String = value.name
         val formFile = "--$boundary$LINE_FEED" +
                 "Content-Disposition: form-data; name=\"$key\"; filename=\"$fileName\"$LINE_FEED" +
-                "Content-Type: ${URLConnection.guessContentTypeFromName(fileName)}$LINE_FEED$LINE_FEED" +
-                "${value.readText()}$LINE_FEED"
+                "Content-Type: ${URLConnection.guessContentTypeFromName(fileName)}$LINE_FEED$LINE_FEED"
         return formFile.toByteArray()
+                .plus(value.readBytes())
+                .plus(LINE_FEED.toByteArray())
     }
 
     fun addFormField(key: String, value: String): FormRequest {
