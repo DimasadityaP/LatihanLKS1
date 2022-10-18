@@ -63,14 +63,27 @@ class UploadGalleryActivity : AppCompatActivity() {
                                 Log.d("getRealPathFromURI", realPath)
                                 val file = File(realPath)
                                 withContext(Dispatchers.IO) {
+//                                    val requestForm = FormRequest()
+//                                        .addFormFile("media", file)
+//                                        .addFormField("key", "00001f67db9714503fe34ba6bc05dea8")
+//
+//                                    val postImage = NetworkApi()
+//                                        .setMethod("POST")
+//                                        .setRequestURL("https://thumbsnap.com/api/upload")
+//                                        .addHeader("Content-Type", requestForm.contentType)
+//                                        .withBody(requestForm)
+//                                        .execute()
+//                                        .asJSON(JSONObject::class.java)
+
                                     val requestForm = FormRequest()
-                                        .addFormFile("media", file)
-                                        .addFormField("key", "00001f67db9714503fe34ba6bc05dea8")
+                                        .addFormFile("file", file)
+                                        .addFormField("", "")
 
                                     val postImage = NetworkApi()
                                         .setMethod("POST")
-                                        .setRequestURL("https://thumbsnap.com/api/upload")
+                                        .setRequestURL("https://api.thecatapi.com/v1/images/upload")
                                         .addHeader("Content-Type", requestForm.contentType)
+                                        .addHeader("x-api-key", "live_FmC7SKi1ljU9sD12KHH0o8gNIM3KijjhIVNCwK6T0QJmjTf1wbkCyWYQN8YWBzfi")
                                         .withBody(requestForm)
                                         .execute()
                                         .asJSON(JSONObject::class.java)
@@ -81,7 +94,7 @@ class UploadGalleryActivity : AppCompatActivity() {
                                     }
 
                                     Log.d("response", postImage.rawResponseData)
-                                    bind(postImage.responseData.getJSONObject("data").getString("thumb"))
+                                    bind(postImage.responseData.getString("url"))
                                     Log.d("postImage", realPath)
                                 }
 

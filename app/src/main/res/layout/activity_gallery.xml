@@ -41,14 +41,14 @@
 
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/Rv_Image"
-        android:layout_width="match_parent"
-        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-        android:layout_height="match_parent"
-        app:spanCount="3"
-        android:orientation="vertical"
-        android:layout_marginTop="@dimen/default_padding_margin"/>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/Rv_Image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="@dimen/default_padding_margin"
+            android:orientation="vertical"
+            app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+            app:spanCount="3" />
 
     </LinearLayout>
 

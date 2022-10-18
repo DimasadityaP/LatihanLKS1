@@ -151,3 +151,32 @@ class FormRequest(): BodyRequest {
         private const val LINE_FEED = "\r\n"
     }
 }
+
+class XWWWFormUrlEncoded() : BodyRequest {
+    private val bodyForm = mutableMapOf<String, String>()
+
+    companion object {
+        private const val LINE_FEED = "\r\n"
+        private const val contentType = "application/x-www-form-urlencoded"
+    }
+
+    override fun encode(os: OutputStream) {
+        var idx: Int = 0
+        this.bodyForm.forEach { body ->
+            var formatData = "${body.key}=${body.value}"
+            if (idx != this.bodyForm.size-1) {
+                formatData += "&"
+            }
+
+            os.write(formatData.toByteArray())
+            idx++
+        }
+        os.flush()
+        os.close()
+    }
+
+    fun addFormField(key: String, value: String): XWWWFormUrlEncoded {
+        this.bodyForm[key] = value
+        return this
+    }
+}

@@ -6,9 +6,13 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.latihanlks1.data.model.Album
 import com.example.latihanlks1.data.model.Photo
 import com.example.latihanlks1.data.network.NetworkApi
@@ -28,7 +32,7 @@ class GalleryActivity : AppCompatActivity() {
     lateinit var galleryadapter: GalleryAdapter
     private var list = listOf<Photo>()
     private var searchlist = listOf<Photo>()
-
+    private var isLoading = false;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,8 +40,6 @@ class GalleryActivity : AppCompatActivity() {
         setContentView(binding.root)
         setUp()
     }
-
-
 
     private fun setUp() {
         galleryadapter = GalleryAdapter { photo ->
@@ -68,13 +70,20 @@ class GalleryActivity : AppCompatActivity() {
                 }
             }
         }
+
         binding.RvImage.adapter = galleryadapter
+
         connectionCatApi()
 
-        binding.btnAdd.setOnClickListener {
-            val intentupload = Intent(this, UploadGalleryActivity::class.java)
-            startActivity(intentupload)
+        binding.btnAdd.setOnClickListener{
+            onClickBtnAdd(it)
         }
+
+    }
+
+    private fun onClickBtnAdd(view: View) {
+        val intentupload = Intent(this, UploadGalleryActivity::class.java)
+        startActivity(intentupload)
     }
 
     private fun connectionCatApi() {
