@@ -157,7 +157,7 @@ class XWWWFormUrlEncoded() : BodyRequest {
 
     companion object {
         private const val LINE_FEED = "\r\n"
-        private const val contentType = "application/x-www-form-urlencoded"
+        const val contentType = "application/x-www-form-urlencoded"
     }
 
     override fun encode(os: OutputStream) {
@@ -171,6 +171,7 @@ class XWWWFormUrlEncoded() : BodyRequest {
             os.write(formatData.toByteArray())
             idx++
         }
+        os.write(LINE_FEED.toByteArray())
         os.flush()
         os.close()
     }
